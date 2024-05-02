@@ -2,61 +2,54 @@ import random
 import time
 
 def generate_data():
-    # Generate R1 with specified values
-    R1 = [(i, 5) for i in range(1, 1001)] + [(i, 7) for i in range(1001, 2001)] + [(2001, 2002)]
-    random.shuffle(R1)  # Ensure random permutation
+    R1 = [(i, 5) for i in range(1, 1001)] + [(i, 7) for i in range(1001, 2001)]
+    R1.append((2001, 2002))
+    random.shuffle(R1)  # Random permutation of R1
 
-    # Generate R2 with specified values
-    R2 = [(5, i) for i in range(1, 1001)] + [(7, i) for i in range(1001, 2001)] + [(2002, 8)]
-    random.shuffle(R2)  # Ensure random permutation
+    R2 = [(5, i) for i in range(1, 1001)] + [(7, i) for i in range(1001, 2001)]
+    R2.append((2002, 8))
+    random.shuffle(R2)  # Random permutation of R2
 
-    # Generate R3 with random values within specified range
-    R3 = [(random.randint(2002, 3000), random.randint(1, 3000)) for _ in range(2000)] + [(8, 30)]
-    random.shuffle(R3)  # Ensure random permutation
+    R3 = [(random.randint(2002, 3000), random.randint(1, 3000)) for _ in range(2000)]
+    R3.append((8, 30))
+    random.shuffle(R3)  # Random permutation of R3
 
     return {"R1": R1, "R2": R2, "R3": R3}
 
-def hash_join(Ra, Rb, key_index_a, key_index_b):
+def hash_join(Ra, Rb, join_on):
     hash_map = {}
     result = []
-    # Create hash map based on join key of Ra
     for a in Ra:
-        hash_map.setdefault(a[key_index_a], []).append(a)
-    # Join Ra and Rb based on join key of Rb
+        hash_map.setdefault(a[join_on[0]], []).append(a)
     for b in Rb:
-        if b[key_index_b] in hash_map:
-            for a in hash_map[b[key_index_b]]:
+        if b[join_on[1]] in hash_map:
+            for a in hash_map[b[join_on[1]]]:
                 result.append(a + b)
     return result
 
-def perform_joins(relations):
-    # Start timing the join process
-    start_time = time.time()
-    
-    # Join R1 with R2 where R1.x = R2.y
-    R1_R2 = hash_join(relations['R1'], relations['R2'], 1, 0)
-    
-    # Join result with R3 where R2.j = R3.x
-    final_result = hash_join(R1_R2, relations['R3'], 3, 0)
-    
-    # End timing the join process
-    end_time = time.time()
-    
-    # Log the join times
-    print(f"Total join time: {end_time - start_time:.6f} seconds")
-    
-    return [tuple(r[:2] + r[3:5] + r[6:]) for r in final_result]
+def perform_yannakakis_joins(relations):
+    start_time = time.perf_counter()
+    R2_semi = hash_join(relations['R2'], relations['R3'], (1, 0))  # Direct join for this scenario
+    R1_R2 = hash_join(relations['R1'], R2_semi, (1, 0))
+    final_result = hash_join(R1_R2, relations['R3'], (2, 0))
+    end_time = time.perf_counter()
+    print(f"Yannakakis joins - Total join time: {end_time - start_time:.6f} seconds")
+    return final_result
 
-# Generate the data
+def perform_sequential_joins(relations):
+    start_time = time.perf_counter()
+    R1_R2 = hash_join(relations['R1'], relations['R2'], (1, 0))
+    final_result = hash_join(R1_R2, relations['R3'], (2, 0))
+    end_time = time.perf_counter()
+    print(f"Sequential joins - Total join time: {end_time - start_time:.6f} seconds")
+    return final_result
+
+# Main execution
 relations = generate_data()
+print("\n--- Optimized Joins (Yannakakis Algorithm) ---")
+result_yannakakis = perform_yannakakis_joins(relations)
+print(f"Number of outgoing tuples from Yannakakis joins: {len(result_yannakakis)}")
 
-# Perform the joins and measure total execution time
-start_time_total = time.time()
-result = perform_joins(relations)
-end_time_total = time.time()
-
-# Display the results
-print(f"Total execution time: {end_time_total - start_time_total:.6f} seconds")
-print(f"Number of outgoing tuples: {len(result)}")
-for line in result[:5]:  # Display first few results
-    print(line)
+print("\n--- Sequential Joins ---")
+result_sequential = perform_sequential_joins(relations)
+print(f"Number of outgoing tuples from sequential joins: {len(result_sequential)}")
